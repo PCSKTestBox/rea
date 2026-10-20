@@ -20,7 +20,7 @@ on:
         type: string
         default: "40"
   push:
-    branches: [main, analysis/pokebonk-balance-lab, analysis/pokebonk-mechanics-evidence]
+    branches: [main, analysis/pokebonk-balance-lab, analysis/pokebonk-mechanics-evidence, analysis/pokebonk-callgraph-lab]
     paths:
       - .github/workflows/pokebonk-balance-lab.yml
       - experiments/pokebonk/lab/**
@@ -62,6 +62,13 @@ jobs:
             --enemy-speed "$ENEMY_SPEED" --spawn-frequency "$SPAWN_FREQUENCY" \
             --xp-cost "$XP_COST" --trials "$TRIALS" \
             --output "$RUNNER_TEMP/synthetic-balance-safe.json"
+
+      - name: Check offline browser balance lab behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          node experiments/pokebonk/lab/lab_smoke.mjs
+          node --check experiments/pokebonk/lab/callgraph_map.mjs
 
       - name: Check historical combat formula reference scenarios
         shell: bash
@@ -200,6 +207,16 @@ jobs:
             "$RUNNER_TEMP/mechanics-candidates-safe.json" "$RUNNER_TEMP/pokebonk-ast-deps"
           echo "The structural report contains only aggregate counts, hashed pointers and operator counts."
 
+      - name: Build privacy-limited direct-call graph hypotheses
+        shell: bash
+        run: |
+          set -euo pipefail
+          exported="$RUNNER_TEMP/rea-exported-js/files"
+          if [[ ! -d "$exported" ]]; then exported="$RUNNER_TEMP/empty-js-files"; fi
+          node experiments/pokebonk/lab/callgraph_map.mjs "$exported" \
+            "$RUNNER_TEMP/callgraph-hypotheses-safe.json" "$RUNNER_TEMP/pokebonk-ast-deps"
+          echo "Static links are hypotheses; only hashes and aggregate counts are exported."
+
       - name: Store sanitized metrics only
         uses: actions/upload-artifact@v4
         with:
@@ -209,6 +226,8 @@ jobs:
             ${{ runner.temp }}/source-signals-safe.json
             ${{ runner.temp }}/mechanics-candidates-safe.json
             ${{ runner.temp }}/combat-v063-reference.json
+            ${{ runner.temp }}/callgraph-hypotheses-safe.json
+            experiments/pokebonk/lab/balance_lab.html
           retention-days: 7
           if-no-files-found: error
 
