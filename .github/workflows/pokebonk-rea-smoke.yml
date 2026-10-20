@@ -53,12 +53,12 @@ jobs:
           for attempt in $(seq 1 45); do
             if curl --silent --fail --max-time 2 "$CDP_URL/json/list" > "$RUNNER_TEMP/browser-targets.json"; then
               if python3 - "$RUNNER_TEMP/browser-targets.json" <<'PY'
-import json, sys, urllib.parse
-with open(sys.argv[1], encoding="utf-8") as f:
-    targets = json.load(f)
-valid = any(t.get("type") == "page" and urllib.parse.urlsplit(t.get("url","")).scheme == "https" and urllib.parse.urlsplit(t.get("url","")).hostname == "pokebonk.com" for t in targets)
-sys.exit(0 if valid else 1)
-PY
+          import json, sys, urllib.parse
+          with open(sys.argv[1], encoding="utf-8") as f:
+              targets = json.load(f)
+          valid = any(t.get("type") == "page" and urllib.parse.urlsplit(t.get("url","")).scheme == "https" and urllib.parse.urlsplit(t.get("url","")).hostname == "pokebonk.com" for t in targets)
+          sys.exit(0 if valid else 1)
+          PY
               then
                 ready=1
                 break
@@ -71,18 +71,18 @@ PY
             exit 1
           fi
           python3 - "$RUNNER_TEMP/browser-targets.json" "$GITHUB_ENV" <<'PY'
-import json, sys, urllib.parse
-with open(sys.argv[1], encoding="utf-8") as f:
-    targets = json.load(f)
-for target in targets:
-    url = urllib.parse.urlsplit(target.get("url", ""))
-    if target.get("type") == "page" and url.scheme == "https" and url.hostname == "pokebonk.com":
-        with open(sys.argv[2], "a", encoding="utf-8") as out:
-            out.write("TARGET_ID=" + target["id"] + "\n")
-        break
-else:
-    sys.exit("Allowed PokéBonk page not found.")
-PY
+          import json, sys, urllib.parse
+          with open(sys.argv[1], encoding="utf-8") as f:
+              targets = json.load(f)
+          for target in targets:
+              url = urllib.parse.urlsplit(target.get("url", ""))
+              if target.get("type") == "page" and url.scheme == "https" and url.hostname == "pokebonk.com":
+                  with open(sys.argv[2], "a", encoding="utf-8") as out:
+                      out.write("TARGET_ID=" + target["id"] + "\n")
+                  break
+          else:
+              sys.exit("Allowed PokéBonk page not found.")
+          PY
           echo "Dedicated Chrome started and PokéBonk browser target detected."
 
       - name: REA passive investigation (no automation, no site code in public logs)
@@ -102,33 +102,33 @@ PY
             bundle_status="unavailable"
           fi
           BUNDLE_STATUS="$bundle_status" python3 - <<'PY'
-import json, os, pathlib
-temp = pathlib.Path(os.environ["RUNNER_TEMP"])
-items = [("Page target discovery", "rea-targets.json"), ("REA page inspection", "rea-inspection.json")]
-if os.environ["BUNDLE_STATUS"] == "passed":
-    items.append(("REA JavaScript bundle assessment", "rea-bundle.json"))
-lines = ["## PokéBonk passive smoke test", "",
-         "- Runtime: GitHub-hosted standard Ubuntu runner",
-         "- REA: official published 6.7.0 CLI",
-         "- Target: https://pokebonk.com/ (one browser session)",
-         "- Gameplay automated: **no**",
-         "- Raw web sources, cookies, logs, and artifacts uploaded: **no**", ""]
-for title, name in items:
-    path = temp / name
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-        valid = isinstance(value, (dict, list))
-        lines.append(f"- {title}: **{'JSON received' if valid else 'unexpected JSON type'}** ({path.stat().st_size} bytes, private temporary file)")
-    except (ValueError, OSError):
-        lines.append(f"- {title}: **no valid JSON**")
-        raise SystemExit("REA returned invalid JSON; raw output kept out of logs.")
-if os.environ["BUNDLE_STATUS"] != "passed":
-    lines.append("- REA JavaScript bundle assessment: **not available** (investigate separately)")
-lines += ["", "This run confirms limited passive capability only. It does not prove game logic, rendering details, or server internals."]
-with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
-    out.write("\n".join(lines) + "\n")
-print("REA inspection succeeded. Sanitized summary was written; raw observations were not uploaded.")
-PY
+          import json, os, pathlib
+          temp = pathlib.Path(os.environ["RUNNER_TEMP"])
+          items = [("Page target discovery", "rea-targets.json"), ("REA page inspection", "rea-inspection.json")]
+          if os.environ["BUNDLE_STATUS"] == "passed":
+              items.append(("REA JavaScript bundle assessment", "rea-bundle.json"))
+          lines = ["## PokéBonk passive smoke test", "",
+                   "- Runtime: GitHub-hosted standard Ubuntu runner",
+                   "- REA: official published 6.7.0 CLI",
+                   "- Target: https://pokebonk.com/ (one browser session)",
+                   "- Gameplay automated: **no**",
+                   "- Raw web sources, cookies, logs, and artifacts uploaded: **no**", ""]
+          for title, name in items:
+              path = temp / name
+              try:
+                  value = json.loads(path.read_text(encoding="utf-8"))
+                  valid = isinstance(value, (dict, list))
+                  lines.append(f"- {title}: **{'JSON received' if valid else 'unexpected JSON type'}** ({path.stat().st_size} bytes, private temporary file)")
+              except (ValueError, OSError):
+                  lines.append(f"- {title}: **no valid JSON**")
+                  raise SystemExit("REA returned invalid JSON; raw output kept out of logs.")
+          if os.environ["BUNDLE_STATUS"] != "passed":
+              lines.append("- REA JavaScript bundle assessment: **not available** (investigate separately)")
+          lines += ["", "This run confirms limited passive capability only. It does not prove game logic, rendering details, or server internals."]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write("\n".join(lines) + "\n")
+          print("REA inspection succeeded. Sanitized summary was written; raw observations were not uploaded.")
+          PY
 
       - name: Close dedicated browser
         if: always()
