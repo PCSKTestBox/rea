@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ゲームバランス実験室 | 独立シミュレーション</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,"Noto Sans JP",sans-serif;background:#080e18;color:#e8eef9}
+*{box-sizing:border-box}body{margin:0}main{max-width:1250px;margin:auto;padding:28px 20px 64px}
+h1{font-size:clamp(1.6rem,3vw,2.7rem);letter-spacing:-.04em;margin:10px 0 10px}
+p{line-height:1.7;color:#abb9cf}.eyebrow{font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:#7fddc6;font-weight:750}
+.warning{padding:12px 16px;border:1px solid #5d5365;background:#25202c;border-radius:12px;font-size:.83rem;color:#eedcce;line-height:1.6}
+.layout{display:grid;grid-template-columns:330px minmax(0,1fr);gap:18px;margin-top:24px}
+.panel{border:1px solid #28394f;background:#101c2a;border-radius:18px;padding:22px;box-shadow:0 8px 38px #0002}
+h2{font-size:1.04rem;margin:0 0 18px}.control{margin:17px 0 20px}
+.control label{display:flex;justify-content:space-between;gap:12px;font-size:.91rem;font-weight:600}
+.value{font-variant-numeric:tabular-nums;color:#8ff1d6}
+input[type=range]{display:block;width:100%;accent-color:#74ddb9;margin:13px 0 6px}
+small,.foot{font-size:.78rem;color:#8797b0}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+button{border:0;border-radius:10px;padding:12px 14px;color:#05131a;background:#8ff1d6;font-weight:750;cursor:pointer}
+button.secondary{background:#253449;color:#dce6f7}button:focus-visible,input:focus-visible{outline:3px solid #a5e8ff;outline-offset:3px}
+.result{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.metric{background:#172537;padding:14px;border-radius:12px}.metric .label{font-size:.72rem;color:#93a8bf}
+.metric .num{font-size:1.42rem;font-weight:800;font-variant-numeric:tabular-nums;margin-top:6px}
+.metric .diff{font-size:.76rem;margin-top:5px;color:#c3d0e1}
+.section{margin:26px 0 12px;font-size:1rem;font-weight:750}
+.comparison{display:grid;gap:14px}.barbox{display:grid;grid-template-columns:150px 1fr 108px;gap:10px;align-items:center;font-size:.83rem}
+.track{height:16px;border-radius:10px;background:#263447;overflow:hidden}
+.bar{height:100%;background:linear-gradient(90deg,#3aaef7,#78ddc3);border-radius:10px;transition:width .4s}
+.bar.base{background:#667793}.legend{display:flex;gap:20px;margin:8px 0 24px;font-size:.75rem;color:#aebcd2}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;background:#5bb5ee}.dot.base{background:#667793}
+.tab{font-variant-numeric:tabular-nums;text-align:right}
+.canvaswrap{border:1px solid #2b4054;border-radius:12px;background:#07131e;overflow:hidden}
+canvas{display:block;width:100%;height:300px}
+.topline{display:flex;gap:14px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.tag{font-size:.72rem;background:#233342;color:#b7f7e5;padding:5px 8px;border-radius:999px}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.result{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:530px){.result{grid-template-columns:1fr}.barbox{grid-template-columns:110px 1fr 72px;font-size:.74rem}main{padding:18px 12px 45px}.panel{padding:16px}}
+</style></head>
+<body><main>
+<div class="eyebrow">PCSKTestBox / Balance research</div>
+<h1>ゲームバランス実験室</h1>
+<p>敵の速度・出現頻度・経験値の必要量を変え、同じ乱数条件で「変更前」と「変更後」を比較します。<strong>この画面は自作の仮シミュレーター</strong>です。</p>
+<div class="warning" role="note"><strong>重要：</strong>PokéBonk本体・実際の敵AI・実測ダメージ式を再現したものではありません。パラメータも架空のものです。公開ゲームへの接続や操作、ゲームの改造は行いません。</div>
+<div class="layout">
+<section class="panel"><h2>1. 実験条件</h2>
+<div class="control"><label for="speed">敵の移動速度 <output class="value" id="speed-v">1.20倍</output></label><input id="speed" type="range" min=".5" max="2" value="1.2" step=".05"><small>敵がプレイヤーに接近する速さ</small></div>
+<div class="control"><label for="spawn">敵の出現頻度 <output class="value" id="spawn-v">1.15倍</output></label><input id="spawn" type="range" min=".5" max="2" value="1.15" step=".05"><small>時間あたりの敵の出現数</small></div>
+<div class="control"><label for="xp">必要経験値 <output class="value" id="xp-v">1.25倍</output></label><input id="xp" type="range" min=".5" max="2" value="1.25" step=".05"><small>レベルアップまでの経験値</small></div>
+<div class="control"><label for="trials">比較試行数 <output class="value" id="trials-v">40回</output></label><input id="trials" type="range" min="10" max="200" value="40" step="10"><small>条件ごとに同じ乱数シードを使用</small></div>
+<div class="actions"><button id="run">比較を実行</button><button id="reset" class="secondary">初期値に戻す</button></div>
+<p class="foot">すべてブラウザー内で計算します。サーバーへの送信はありません。</p>
+</section>
+<section class="panel">
+<div class="topline"><h2>2. 比較結果</h2><span class="tag" id="trials-label">40ペア比較</span></div>
+<div class="result">
+<div class="metric"><div class="label">平均生存時間</div><div class="num" id="survival">—</div><div class="diff" id="survival-detail">—</div></div>
+<div class="metric"><div class="label">平均撃破数</div><div class="num" id="kills">—</div><div class="diff" id="kills-detail">—</div></div>
+<div class="metric"><div class="label">平均到達レベル</div><div class="num" id="level">—</div><div class="diff" id="level-detail">—</div></div>
+</div>
+<div class="section">変更前・変更後の比較</div>
+<div class="legend"><span><i class="dot base"></i>基準</span><span><i class="dot"></i>変更後</span></div>
+<div class="comparison" id="bars"></div>
+<div class="section">敵の接近イメージ（概念図）</div>
+<div class="canvaswrap"><canvas id="arena" width="760" height="300" role="img" aria-label="中央のプレイヤーへ敵が近づく概念アニメーション。実ゲームの映像ではありません。"></canvas></div>
+<p class="foot">画面のドットは概念図であり、PokéBonkの映像・グラフィックスではありません。</p>
+</section></div>
+<section class="panel" style="margin-top:18px"><h2>3. 実験結果をどう読むか</h2>
+<p>敵の移動速度を上げた結果、生存時間が短くなるなら、敵との距離や攻撃間隔が難易度に影響しやすいモデルだと解釈できます。ただしそれは<strong>この独立シミュレーターでの結果</strong>です。PokéBonkの現行版に適用するには、REAで抽出した処理のレビューと、許可された通常プレイ観測で別途検証する必要があります。</p>
+<small>設計：PCSKTestBox/rea | オフラインで動作 | ゲームコード・キャラクター素材は含みません</small>
+</section>
+</main><script>
+"use strict";
+const $=id=>document.getElementById(id);
+const defaultValues={speed:1.20,spawn:1.15,xp:1.25,trials:40};
+let values={...defaultValues};
+function rng(seed){let x=seed>>>0;return ()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return (x>>>0)/4294967296;};}
+function simulate(seed,p){
+ const random=rng(seed);let t=0,hp=135,level=1,xp=0,kills=0,damage=0,next=0;const enemies=[];
+ while(t<180&&hp>0){
+  if(t>=next){enemies.push({dist:12+random()*10,hp:30+.29*t,speed:(.9+random()*.65)*p.speed,hit:2.3+.017*t});next=t+Math.max(.65,(2.35-.005*t)/p.spawn);}
+  for(const e of enemies){e.dist=Math.max(0,e.dist-e.speed*.2);if(e.dist<1.25){const d=e.hit*.2;hp-=d;damage+=d;}}
+  let index=-1,near=Infinity;for(let j=0;j<enemies.length;j++)if(enemies[j].dist<near){near=enemies[j].dist;index=j;}
+  if(index>=0&&near<=7.5){
+    const e=enemies[index];e.hp-=12.5*Math.pow(1.15,level-1)*.2;
+    if(e.hp<=0){enemies.splice(index,1);kills++;xp+=9;let need=17*Math.pow(1.28,level-1)*p.xp;
+      while(xp>=need&&level<60){xp-=need;level++;need=17*Math.pow(1.28,level-1)*p.xp;}}
+  }
+  t+=.2;
+ }
+ return{survival:Math.min(180,t),kills,level,damage,completed:hp>0};
+}
+const avg=(rs,k)=>rs.reduce((s,x)=>s+x[k],0)/rs.length;
+function analyze(p){
+ const seeds=Array.from({length:p.trials},(_,i)=>(0x9e3779b9+i*137)>>>0);
+ const base=seeds.map(s=>simulate(s,{speed:1,spawn:1,xp:1}));
+ const other=seeds.map(s=>simulate(s,p));
+ const fields=['survival','kills','level','damage'];
+ return Object.fromEntries(fields.map(f=>[f,[avg(base,f),avg(other,f)]]));
+}
+function refresh(){
+ for(const [k,v] of Object.entries(values)){$(k).value=v;$(k+'-v').textContent=k==='trials'?v+'回':v.toFixed(2)+'倍';}
+ $('trials-label').textContent=values.trials+'ペア比較';
+ const result=analyze(values);
+ const round=(x,n=1)=>Number(x).toFixed(n);
+ for(const f of ['survival','kills','level']){
+  const [a,b]=result[f],unit=f==='survival'?'秒':'';
+  $(f).textContent=round(b)+unit;
+  $(f+'-detail').textContent='変更前 '+round(a)+unit+' → '+round(b)+unit+' (差 '+(b>=a?'+':'')+round(b-a)+')';
+ }
+ const labels={survival:'生存時間',kills:'撃破数',level:'到達レベル',damage:'受けたダメージ'};
+ const box=$('bars');box.replaceChildren();
+ for(const [k,[a,b]] of Object.entries(result)){
+  const mx=Math.max(a,b,1);
+  for(const [v,base] of [[a,true],[b,false]]){
+   const row=document.createElement('div');row.className='barbox';
+   const name=document.createElement('span');name.textContent=base?labels[k]+' (基準)':labels[k]+' (変更)';
+   const track=document.createElement('div');track.className='track';
+   const bar=document.createElement('div');bar.className='bar'+(base?' base':'');bar.style.width=(100*v/mx)+'%';track.append(bar);
+   const num=document.createElement('span');num.className='tab';num.textContent=round(v);
+   row.append(name,track,num);box.append(row);
+  }
+ }
+}
+for(const k of Object.keys(defaultValues)){
+ $(k).addEventListener('input',()=>{values[k]=Number($(k).value);$(k+'-v').textContent=k==='trials'?values[k]+'回':values[k].toFixed(2)+'倍';});
+}
+$('run').addEventListener('click',refresh);
+$('reset').addEventListener('click',()=>{values={...defaultValues};refresh();});
+const ctx=$('arena').getContext('2d');let tick=0;
+function frame(){
+ const c=ctx.canvas,w=c.width,h=c.height;ctx.fillStyle='#07131e';ctx.fillRect(0,0,w,h);
+ ctx.strokeStyle='#163346';ctx.lineWidth=1;for(let x=20;x<w;x+=30){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+ for(let y=10;y<h;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+ const center=[w/2,h/2];ctx.beginPath();ctx.fillStyle='#8ff1d6';ctx.arc(center[0],center[1],11,0,Math.PI*2);ctx.fill();
+ for(let i=0;i<16;i++){
+  const a=i*2.39996,t=(tick*.25*(values.speed))*((i%4)+1),r=22+((i*19+130-t)%250+250)%250;
+  const x=center[0]+Math.cos(a)*r,y=center[1]+Math.sin(a)*r;
+  ctx.beginPath();ctx.fillStyle='#f7a5ac';ctx.arc(x,y,4.5+i%3,0,Math.PI*2);ctx.fill();
+ }
+ ctx.strokeStyle='#6cb3a666';ctx.beginPath();ctx.arc(center[0],center[1],100,0,Math.PI*2);ctx.stroke();
+ tick=(tick+1)%100000;requestAnimationFrame(frame);
+}
+refresh();if(ctx)requestAnimationFrame(frame);
+</script></body></html>
