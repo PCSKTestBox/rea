@@ -63,6 +63,13 @@ jobs:
             --xp-cost "$XP_COST" --trials "$TRIALS" \
             --output "$RUNNER_TEMP/synthetic-balance-safe.json"
 
+      - name: Check historical combat formula reference scenarios
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check experiments/pokebonk/lab/combat_reference_v063.mjs
+          node experiments/pokebonk/lab/combat_reference_v063.mjs "$RUNNER_TEMP/combat-v063-reference.json"
+
       - name: Verify preinstalled Chrome and install pinned REA
         shell: bash
         run: |
@@ -201,6 +208,7 @@ jobs:
             ${{ runner.temp }}/synthetic-balance-safe.json
             ${{ runner.temp }}/source-signals-safe.json
             ${{ runner.temp }}/mechanics-candidates-safe.json
+            ${{ runner.temp }}/combat-v063-reference.json
           retention-days: 7
           if-no-files-found: error
 
