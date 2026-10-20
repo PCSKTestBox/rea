@@ -20,7 +20,7 @@ on:
         type: string
         default: "40"
   push:
-    branches: [main, analysis/pokebonk-balance-lab]
+    branches: [main, analysis/pokebonk-balance-lab, analysis/pokebonk-mechanics-evidence]
     paths:
       - .github/workflows/pokebonk-balance-lab.yml
       - experiments/pokebonk/lab/**
@@ -62,6 +62,13 @@ jobs:
             --enemy-speed "$ENEMY_SPEED" --spawn-frequency "$SPAWN_FREQUENCY" \
             --xp-cost "$XP_COST" --trials "$TRIALS" \
             --output "$RUNNER_TEMP/synthetic-balance-safe.json"
+
+      - name: Check historical combat formula reference scenarios
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check experiments/pokebonk/lab/combat_reference_v063.mjs
+          node experiments/pokebonk/lab/combat_reference_v063.mjs "$RUNNER_TEMP/combat-v063-reference.json"
 
       - name: Verify preinstalled Chrome and install pinned REA
         shell: bash
@@ -181,6 +188,18 @@ jobs:
           node experiments/pokebonk/lab/source_signals.mjs "$exported" "$RUNNER_TEMP/source-signals-safe.json"
           echo "Only aggregate lexical counts are included in this report."
 
+      - name: Inspect static mechanics candidate structures (no raw source upload)
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/pokebonk-ast-deps" --ignore-scripts --no-audit --no-fund acorn@8.15.0 acorn-walk@8.3.4 > /dev/null
+          node --check experiments/pokebonk/lab/evidence_map.mjs
+          exported="$RUNNER_TEMP/rea-exported-js/files"
+          if [[ ! -d "$exported" ]]; then exported="$RUNNER_TEMP/empty-js-files"; fi
+          node experiments/pokebonk/lab/evidence_map.mjs "$exported" \
+            "$RUNNER_TEMP/mechanics-candidates-safe.json" "$RUNNER_TEMP/pokebonk-ast-deps"
+          echo "The structural report contains only aggregate counts, hashed pointers and operator counts."
+
       - name: Store sanitized metrics only
         uses: actions/upload-artifact@v4
         with:
@@ -188,6 +207,8 @@ jobs:
           path: |
             ${{ runner.temp }}/synthetic-balance-safe.json
             ${{ runner.temp }}/source-signals-safe.json
+            ${{ runner.temp }}/mechanics-candidates-safe.json
+            ${{ runner.temp }}/combat-v063-reference.json
           retention-days: 7
           if-no-files-found: error
 
